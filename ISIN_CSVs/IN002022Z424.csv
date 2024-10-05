@@ -1,0 +1,2 @@
+TradDt,Sgmt,ISIN,TckrSymb,FinInstrmNm,OpnPric,HghPric,LwPric,ClsPric,LastPric,PrvsClsgPric,TtlTradgVol,TtlTrfVal,TtlNbOfTxsExctd
+2024-01-15,CM,IN002022Z424,364D180124,GOI TBILL 364D-18/01/24,99.75,99.8,99.71,99.74,99.75,99.68,12000,1197010.0,10

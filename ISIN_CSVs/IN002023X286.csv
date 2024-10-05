@@ -1,0 +1,2 @@
+TradDt,Sgmt,ISIN,TckrSymb,FinInstrmNm,OpnPric,HghPric,LwPric,ClsPric,LastPric,PrvsClsgPric,TtlTradgVol,TtlTrfVal,TtlNbOfTxsExctd
+2024-01-01,CM,IN002023X286,91D040124,GOI TBILL 91D-04/01/24,99.95,99.95,99.95,99.95,99.95,99.95,200,19990.0,2

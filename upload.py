@@ -35,6 +35,8 @@ logging.basicConfig(filename=log_file, level=logging.INFO,
 
 list_of_files = os.listdir(os.path.join(os.getcwd(), 'Bhavcopy'))        # Files is a array containing name of all the bhavcopy
 
+list_of_stocks = os.listdir(os.path.join(os.getcwd(), 'ISIN_CSVs'))
+
 def table_exists(tablename):
     cursor.execute(f"SHOW TABLES LIKE '{tablename}'")
     result = cursor.fetchone()
@@ -87,66 +89,6 @@ def get_column_indices(filename):
             else:
                 print("column not found")  # Column not found
  
-
-def file_to_stock():                #uploades stock wise data to database 2 - 'stockwisedb' where data of perticular stock is uploded
-    
-    global conn, cursor
-    
-    filename = list_of_files
-    batch_size = 1000
-    
-    for file in filename:
-    
-        get_column_indices(file)
-
-        file = os.path.join(os.getcwd(), 'Bhavcopy', file)
-        
-        with open(file, mode='r') as csv_file:
-            csv_reader = csv.reader(csv_file)
-            header = next(csv_reader)
-
-            data_batch = []
-
-            for row in csv_reader:
-
-                t_name = row[COL[2]]
-
-                #function to create table and check if table exits or not
-                if(table_exists(t_name)):
-                    
-                    row_data = [row[col] for col in COL]
-
-                    if len(row_data) != 14:  # Ensure correct number of columns for insert
-                        print(f"Warning: Expected 14 values, but got {len(row_data)}. Row: {row}")
-                        continue
-                    
-                    data_batch.append(tuple(row_data))
-
-                    if len(data_batch) >= batch_size:
-
-                        sql = f"""INSERT INTO {t_name} 
-                                    (TradeDt, Sgmt, ISIN, TckrSymb, FinInstrmNm, 
-                                    OpnPric, HghPric, LwPric, ClsPric, LastPric, 
-                                    PrvsClsgPric, TtlTradgVol, TtlTrfVal, TtlNbOfTxsExctd) 
-                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
-                                    %s, %s, %s, %s)"""
-            
-                        try:
-                            cursor.executemany(sql, data_batch)
-                            print(f"Inserted {len(data_batch)} records into {t_name}.")
-                            conn.commit()
-                            data_batch = []
-                        except Exception as e:
-                            print(f"An error occurred during batch insert: {e}")
-                
-            if data_batch:
-                try:
-                    cursor.executemany(sql, data_batch)
-                    print(f"Inserted remaining {len(data_batch)} records into {t_name}.")
-                except Exception as e:
-                    print(f"An error occurred during final batch insert: {e}")
-    conn.commit()
-
 def is_file_uploaded(filename):
     """
     Check if the file has been uploaded by reading the log file.
@@ -160,8 +102,7 @@ def is_file_uploaded(filename):
                 if filename in line and 'successfully uploaded' in line:
                     return True
     return False                       
-    
-
+  
 def update_stocks(name):            #updates list of stock when new bhavcopy is there
 
     name_of_file = os.path.join(os.getcwd(), 'Bhavcopy', name)
@@ -184,6 +125,42 @@ def update_stocks(name):            #updates list of stock when new bhavcopy is 
         
     except ValueError as e:
         print ("Error occured while updating stock list")
+
+
+def file_to_stock():                #uploades stock wise data to database 2 - 'stockwisedb' where data of perticular stock is uploded
+    
+    i = 0
+
+    for filename in list_of_stocks:
+
+        csv_file_path = os.path.join(os.getcwd(), 'ISIN_CSVs', filename)
+
+        columns_to_read = [
+        'TradDt', 'Sgmt', 'ISIN', 'TckrSymb', 'FinInstrmNm', 'OpnPric', 
+        'HghPric', 'LwPric', 'ClsPric', 'LastPric', 
+        'PrvsClsgPric', 'TtlTradgVol', 'TtlTrfVal', 'TtlNbOfTxsExctd'
+        ]
+
+        data = pd.read_csv(csv_file_path, usecols=columns_to_read)
+
+        data['PerChange'] = (data['ClsPric'] - data['PrvsClsgPric'])/data['PrvsClsgPric']
+
+        database_url = f'mysql+mysqldb://{db_user}:{db_password}@{db_host}:{db_port}/{db_name_2}'
+        
+        engine = create_engine(database_url)
+        
+        try:
+            data.to_sql(filename.replace(".csv","").lower(), con=engine, if_exists='replace', index=False)
+            print(f"{i} out of {len(list_of_stocks)} files completed.")
+            i = i+1
+                
+        except ValueError as e:
+            print (f"Error uploading {filename}: {e}") 
+
+        except Exception as e:
+            # Log any other errors during the process
+            print(f"Error uploading {filename}: {e}")
+    
  
 def file_to_table():                #uplodes daily bhavcopy to database1 - 'datewisedb'
 
@@ -226,7 +203,7 @@ def file_to_table():                #uplodes daily bhavcopy to database1 - 'date
 
 file_to_table()                 #uplodes daily bhavcopy to database 1 - 'datewisedb'
 
-#file_to_stock()                 #uploades stock wise data to database 2 - 'stockwisedb' where data of perticular stock is uploded
+file_to_stock()                 #uploades stock wise data to database 2 - 'stockwisedb' where data of perticular stock is uploded
 
 #conn.commit()
 #cursor.close()
