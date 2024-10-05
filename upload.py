@@ -30,64 +30,9 @@ logging.basicConfig(filename=log_file, level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-#conn = mysql.connect(user=db_user, password=db_password, host=db_host, database=db_name_2) #global connection to stock database close after calling the function
-#cursor = conn.cursor() 
-
 list_of_files = os.listdir(os.path.join(os.getcwd(), 'Bhavcopy'))        # Files is a array containing name of all the bhavcopy
 
 list_of_stocks = os.listdir(os.path.join(os.getcwd(), 'ISIN_CSVs'))
-
-def table_exists(tablename):
-    cursor.execute(f"SHOW TABLES LIKE '{tablename}'")
-    result = cursor.fetchone()
-
-    if result:
-        return True
-    else:
-        create_table_query = f"""
-        CREATE TABLE IF NOT EXISTS {tablename}(
-            TradeDt DATE,
-            Sgmt VARCHAR(10) NOT NULL,
-            ISIN VARCHAR(12) NOT NULL,
-            TckrSymb VARCHAR(10) NOT NULL,
-            FinInstrmNm VARCHAR(255) NOT NULL,
-            OpnPric DOUBLE,
-            HghPric DOUBLE NOT NULL,
-            LwPric DOUBLE NOT NULL,
-            ClsPric DOUBLE NOT NULL,
-            LastPric DOUBLE NOT NULL,
-            PrvsClsgPric DOUBLE NOT NULL,
-            TtlTradgVol BIGINT NOT NULL,
-            TtlTrfVal DOUBLE NOT NULL,
-            TtlNbOfTxsExctd BIGINT NOT NULL
-            
-        );
-        """
-        cursor.execute(create_table_query)
-        print(f"Table '{tablename}' created successfully.")
-        return True
-
-def get_column_indices(filename):
-
-    global COL
-    COL.clear()
-    csv_file = os.path.join(os.getcwd(), 'Bhavcopy', filename)
-    # Define the target column names
-    target_columns = [
-        'TradDt', 'Sgmt', 'ISIN', 'TckrSymb', 'FinInstrmNm', 'OpnPric', 
-        'HghPric', 'LwPric', 'ClsPric', 'LastPric', 
-        'PrvsClsgPric', 'TtlTradgVol', 'TtlTrfVal', 'TtlNbOfTxsExctd'
-    ]
-        
-    # Open the CSV file
-    with open(csv_file, mode='r', newline='') as file:
-        reader = csv.reader(file)
-        header = next(reader)
-        for column in target_columns:
-            if column in header:
-                COL.append(header.index(column))
-            else:
-                print("column not found")  # Column not found
  
 def is_file_uploaded(filename):
     """
@@ -204,10 +149,6 @@ def file_to_table():                #uplodes daily bhavcopy to database1 - 'date
 file_to_table()                 #uplodes daily bhavcopy to database 1 - 'datewisedb'
 
 file_to_stock()                 #uploades stock wise data to database 2 - 'stockwisedb' where data of perticular stock is uploded
-
-#conn.commit()
-#cursor.close()
-#conn.close()
 
 #use 7 zip on all files and extract the files
 #use *.* in search bar cut all csv file and paste it in new folder
