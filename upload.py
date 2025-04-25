@@ -1,7 +1,7 @@
 import mysql.connector as mysql
 import csv
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, MetaData, Table
 import os
 import configparser
 import logging
@@ -33,6 +33,18 @@ logging.basicConfig(filename=log_file, level=logging.INFO,
 list_of_files = os.listdir(os.path.join(os.getcwd(), 'Bhavcopy'))        # Files is a array containing name of all the bhavcopy
 
 list_of_stocks = os.listdir(os.path.join(os.getcwd(), 'ISIN_CSVs'))
+
+def delete_rows(tablename, connection):
+
+    metadata = MetaData()
+    metadata.reflect(bind=connection)
+
+    table = metadata.tables[tablename]
+
+    with connection.connect() as con:
+        con.execute(table.delete().where(table.c.series != "EQ"))
+        con.commit()
+    
  
 def is_file_uploaded(filename):
     """
@@ -48,26 +60,28 @@ def is_file_uploaded(filename):
                     return True
     return False                       
   
-def update_stocks(name):            #updates list of stock when new bhavcopy is there
+def update_stocks(name, connection):            #updates list of stock when new bhavcopy is there
 
     name_of_file = os.path.join(os.getcwd(), 'Bhavcopy', name)
 
-    columns = ['Sgmt', 'ISIN', 'TckrSymb', 'FinInstrmNm']
+    columns = ['SYMBOL', 'SERIES']
     
     stocks = pd.read_csv(name_of_file, usecols=columns)
     
-    database_url = f'mysql+mysqldb://{db_user}:{db_password}@{db_host}:{db_port}/{db_name_1}'
+    #database_url = f'mysql+mysqldb://{db_user}:{db_password}@{db_host}:{db_port}/{db_name_1}'
             
-    engine = create_engine(database_url)
+    #engine = create_engine(database_url)
     
     database_url_2 = f'mysql+mysqldb://{db_user}:{db_password}@{db_host}:{db_port}/{db_name_2}'
             
     engine_2 = create_engine(database_url_2)
     
     try:
-        stocks.to_sql('stocklist', con=engine, if_exists='replace', index=False)
+        stocks.to_sql('stocklist', con=connection, if_exists='replace', index=False)
+        delete_rows('stocklist', connection)
+
         stocks.to_sql('stocklist', con=engine_2, if_exists='replace', index=False)
-        
+        delete_rows('stocklist', engine_2)
     except ValueError as e:
         print ("Error occured while updating stock list")
 
@@ -117,11 +131,13 @@ def file_to_table():                #uplodes daily bhavcopy to database1 - 'date
 
         csv_file_path = os.path.join(os.getcwd(), 'Bhavcopy', filename)
 
-        columns_to_read = ['Sgmt', 'ISIN', 'TckrSymb', 'SctySrs', 'FinInstrmNm', 'OpnPric', 'HghPric', 'LwPric', 'ClsPric', 'LastPric', 'PrvsClsgPric', 'TtlTradgVol', 'TtlTrfVal', 'TtlNbOfTxsExctd']
+        columns_to_read = ['SYMBOL','SERIES','PREV_CLOSE','OPEN_PRICE','HIGH_PRICE','LOW_PRICE','LAST_PRICE','CLOSE_PRICE','TTL_TRD_QNTY','TURNOVER_LACS','NO_OF_TRADES','DELIV_QTY','DELIV_PER']
         
+        data['PREV_CLOSE'] = 1 if data['PREV_CLOSE'] == 0 else data['PREV_CLOSE']
+
         data = pd.read_csv(csv_file_path, usecols=columns_to_read)
 
-        data['PerChange'] = (data['ClsPric'] - data['PrvsClsgPric'])/data['PrvsClsgPric']
+        data['PER_CHANGE'] = (data['CLOSE_PRICE'] - data['PREV_CLOSE'])/data['PREV_CLOSE']
 
         database_url = f'mysql+mysqldb://{db_user}:{db_password}@{db_host}:{db_port}/{db_name_1}'
         
@@ -133,7 +149,7 @@ def file_to_table():                #uplodes daily bhavcopy to database1 - 'date
             logging.info(f"{filename} successfully uploaded to the database.")
             print(f"{filename} successfully uploaded.")
 
-            update_stocks(filename)
+            update_stocks(filename, engine)
                 
         except ValueError as e:
             logging.warning(f"{filename} file is already uploaded: {e}")
