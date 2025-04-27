@@ -32,7 +32,7 @@ logging.basicConfig(filename=log_file, level=logging.INFO,
 
 list_of_files = os.listdir(os.path.join(os.getcwd(), 'Bhavcopy'))        # Files is a array containing name of all the bhavcopy
 
-list_of_stocks = os.listdir(os.path.join(os.getcwd(), 'ISIN_CSVs'))
+list_of_stocks = os.listdir(os.path.join(os.getcwd(), 'Stocks'))
 
 def delete_rows(tablename, connection):
 
@@ -92,7 +92,7 @@ def file_to_stock():                #uploades stock wise data to database 2 - 's
 
     for filename in list_of_stocks:
 
-        csv_file_path = os.path.join(os.getcwd(), 'ISIN_CSVs', filename)
+        csv_file_path = os.path.join(os.getcwd(), 'Stocks', filename)
 
         columns_to_read = [
         'TradDt', 'Sgmt', 'ISIN', 'TckrSymb', 'FinInstrmNm', 'OpnPric', 
@@ -117,7 +117,7 @@ def file_to_stock():                #uploades stock wise data to database 2 - 's
             print (f"Error uploading {filename}: {e}") 
 
         except Exception as e:
-            # Log any other errors during the process
+            # Log any other errors during the process   
             print(f"Error uploading {filename}: {e}")
     
  
@@ -131,13 +131,14 @@ def file_to_table():                #uplodes daily bhavcopy to database1 - 'date
 
         csv_file_path = os.path.join(os.getcwd(), 'Bhavcopy', filename)
 
-        columns_to_read = ['SYMBOL','SERIES','PREV_CLOSE','OPEN_PRICE','HIGH_PRICE','LOW_PRICE','LAST_PRICE','CLOSE_PRICE','TTL_TRD_QNTY','TURNOVER_LACS','NO_OF_TRADES','DELIV_QTY','DELIV_PER']
-        
-        data['PREV_CLOSE'] = 1 if data['PREV_CLOSE'] == 0 else data['PREV_CLOSE']
+        columns_to_read = ['SYMBOL', ' SERIES', ' PREV_CLOSE', ' OPEN_PRICE', ' HIGH_PRICE', ' LOW_PRICE', ' LAST_PRICE', ' CLOSE_PRICE', ' AVG_PRICE', ' TTL_TRD_QNTY', ' TURNOVER_LACS', ' NO_OF_TRADES', ' DELIV_QTY', ' DELIV_PER']
+        #data['PREV_CLOSE'] = 1 if data['PREV_CLOSE'] == 0 else data['PREV_CLOSE']
 
-        data = pd.read_csv(csv_file_path, usecols=columns_to_read)
+        data = pd.read_csv(csv_file_path, usecols=columns_to_read, encoding='latin1')
 
-        data['PER_CHANGE'] = (data['CLOSE_PRICE'] - data['PREV_CLOSE'])/data['PREV_CLOSE']
+        data = data[data[' SERIES'] == ' EQ']
+
+        data['PER_CHANGE'] = round(((data[' CLOSE_PRICE'] - data[' PREV_CLOSE'])/data[' PREV_CLOSE'])*100,2)
 
         database_url = f'mysql+mysqldb://{db_user}:{db_password}@{db_host}:{db_port}/{db_name_1}'
         
@@ -149,7 +150,7 @@ def file_to_table():                #uplodes daily bhavcopy to database1 - 'date
             logging.info(f"{filename} successfully uploaded to the database.")
             print(f"{filename} successfully uploaded.")
 
-            update_stocks(filename, engine)
+            #update_stocks(filename, engine)
                 
         except ValueError as e:
             logging.warning(f"{filename} file is already uploaded: {e}")
@@ -161,10 +162,9 @@ def file_to_table():                #uplodes daily bhavcopy to database1 - 'date
             print(f"Error uploading {filename}: {e}")
 
  
-
 file_to_table()                 #uplodes daily bhavcopy to database 1 - 'datewisedb'
 
-file_to_stock()                 #uploades stock wise data to database 2 - 'stockwisedb' where data of perticular stock is uploded
+#file_to_stock()                 #uploades stock wise data to database 2 - 'stockwisedb' where data of perticular stock is uploded
 
 #use 7 zip on all files and extract the files
 #use *.* in search bar cut all csv file and paste it in new folder
