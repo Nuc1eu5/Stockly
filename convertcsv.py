@@ -18,7 +18,7 @@ def is_file_uploaded(file):
     if os.path.exists(log_file):
         with open(log_file, 'r') as log:
             for line in log:
-                if file in line and 'successfully uploaded' in line:
+                if file in line and 'Finished processing' in line:
                     return True
     return False
 
@@ -30,34 +30,31 @@ def bhavcopy_to_csv(file):
     try:
 
         data = pd.read_csv(file_path)
+        data = data[data[' SERIES'] == ' EQ']
+        data['PER_CHANGE'] = round(((data[' CLOSE_PRICE'] - data[' PREV_CLOSE'])/data[' PREV_CLOSE'])*100,2)
 
-        columns_of_interest = [
-        'TradDt', 'Sgmt', 'ISIN', 'TckrSymb', 'FinInstrmNm', 'OpnPric', 
-        'HghPric', 'LwPric', 'ClsPric', 'LastPric', 
-        'PrvsClsgPric', 'TtlTradgVol', 'TtlTrfVal', 'TtlNbOfTxsExctd'
-        ]
-
+        #columns_of_interest = ['SYMBOL', ' SERIES',' DATE1', ' PREV_CLOSE', ' OPEN_PRICE', ' HIGH_PRICE', ' LOW_PRICE', ' LAST_PRICE', ' CLOSE_PRICE', ' AVG_PRICE', ' TTL_TRD_QNTY', ' TURNOVER_LACS', ' NO_OF_TRADES', ' DELIV_QTY', ' DELIV_PER']
+        
         # Filter the data to keep only the relevant columns
-        filtered_data = data[columns_of_interest]
+        #filtered_data = data[columns_of_interest]
 
         # Create a directory to store the CSV files
-        output_dir = 'ISIN_CSVs'
+        output_dir = 'Stocks'
         os.makedirs(output_dir, exist_ok=True)
 
-        # Group the data by ISIN and create separate CSV files for each ISIN
-        unique_isins = filtered_data['ISIN'].unique()
+        # Group the data by symbol and create separate CSV files for each symbol
+        unique_stocks = data['SYMBOL'].unique()
 
-        for isin in unique_isins:
+        for stock in unique_stocks:
 
-            file_name = f"{output_dir}/{isin}.csv"
+            file_name = f"{output_dir}/{stock}.csv"
             file_exists = os.path.isfile(file_name)
 
-            isin_data = filtered_data[filtered_data['ISIN'] == isin]
+            isin_data = data[data['SYMBOL'] == stock]
             isin_data.to_csv(file_name, mode='a', index=False, header=not file_exists)
 
     except Exception as e:
         logging.error(f"Error processing {file_path}: {str(e)}")
-
 
 
 # Load the CSV file
@@ -66,6 +63,7 @@ list_of_files = os.listdir(bhavcopy_directory)  # Replace with your file path
 
 for file in list_of_files:
     if(is_file_uploaded(file)):
+        print(f"{file} is already converted to csv")
         pass
     else:
         print(f"processing :{file}")

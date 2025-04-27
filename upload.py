@@ -34,6 +34,7 @@ list_of_files = os.listdir(os.path.join(os.getcwd(), 'Bhavcopy'))        # Files
 
 list_of_stocks = os.listdir(os.path.join(os.getcwd(), 'Stocks'))
 
+"""
 def delete_rows(tablename, connection):
 
     metadata = MetaData()
@@ -44,7 +45,7 @@ def delete_rows(tablename, connection):
     with connection.connect() as con:
         con.execute(table.delete().where(table.c.series != "EQ"))
         con.commit()
-    
+"""    
  
 def is_file_uploaded(filename):
     """
@@ -59,7 +60,8 @@ def is_file_uploaded(filename):
                 if filename in line and 'successfully uploaded' in line:
                     return True
     return False                       
-  
+
+""" 
 def update_stocks(name, connection):            #updates list of stock when new bhavcopy is there
 
     name_of_file = os.path.join(os.getcwd(), 'Bhavcopy', name)
@@ -84,7 +86,7 @@ def update_stocks(name, connection):            #updates list of stock when new 
         delete_rows('stocklist', engine_2)
     except ValueError as e:
         print ("Error occured while updating stock list")
-
+"""
 
 def file_to_stock():                #uploades stock wise data to database 2 - 'stockwisedb' where data of perticular stock is uploded
     
@@ -94,15 +96,7 @@ def file_to_stock():                #uploades stock wise data to database 2 - 's
 
         csv_file_path = os.path.join(os.getcwd(), 'Stocks', filename)
 
-        columns_to_read = [
-        'TradDt', 'Sgmt', 'ISIN', 'TckrSymb', 'FinInstrmNm', 'OpnPric', 
-        'HghPric', 'LwPric', 'ClsPric', 'LastPric', 
-        'PrvsClsgPric', 'TtlTradgVol', 'TtlTrfVal', 'TtlNbOfTxsExctd'
-        ]
-
-        data = pd.read_csv(csv_file_path, usecols=columns_to_read)
-
-        data['PerChange'] = (data['ClsPric'] - data['PrvsClsgPric'])/data['PrvsClsgPric']
+        data = pd.read_csv(csv_file_path)
 
         database_url = f'mysql+mysqldb://{db_user}:{db_password}@{db_host}:{db_port}/{db_name_2}'
         
@@ -134,7 +128,7 @@ def file_to_table():                #uplodes daily bhavcopy to database1 - 'date
         columns_to_read = ['SYMBOL', ' SERIES', ' PREV_CLOSE', ' OPEN_PRICE', ' HIGH_PRICE', ' LOW_PRICE', ' LAST_PRICE', ' CLOSE_PRICE', ' AVG_PRICE', ' TTL_TRD_QNTY', ' TURNOVER_LACS', ' NO_OF_TRADES', ' DELIV_QTY', ' DELIV_PER']
         #data['PREV_CLOSE'] = 1 if data['PREV_CLOSE'] == 0 else data['PREV_CLOSE']
 
-        data = pd.read_csv(csv_file_path, usecols=columns_to_read, encoding='latin1')
+        data = pd.read_csv(csv_file_path, usecols=columns_to_read)
 
         data = data[data[' SERIES'] == ' EQ']
 
@@ -162,10 +156,12 @@ def file_to_table():                #uplodes daily bhavcopy to database1 - 'date
             print(f"Error uploading {filename}: {e}")
 
  
-file_to_table()                 #uplodes daily bhavcopy to database 1 - 'datewisedb'
+#file_to_table()                 #uplodes daily bhavcopy to database 1 - 'datewisedb'
 
-#file_to_stock()                 #uploades stock wise data to database 2 - 'stockwisedb' where data of perticular stock is uploded
+file_to_stock()                 #uploades stock wise data to database 2 - 'stockwisedb' where data of perticular stock is uploded
 
+
+#below information is no longer useful after automated csv downloader update.
 #use 7 zip on all files and extract the files
 #use *.* in search bar cut all csv file and paste it in new folder
 #rename all files using cmd command - rename "BhavCopy_NSE_CM_0_0_0_*.csv" "//////////////////////*.csv"

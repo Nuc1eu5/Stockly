@@ -15,11 +15,16 @@ db_password = config['database_1']['password']
 db_host = config['database_1']['host']
 db_port = config['database_1']['port']
 db_name = config['database_1']['database']
+db_name_stock = config['database_2']['database']
 
 
 # Create database engine
 database_url = f'mysql+mysqldb://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}'
 engine = create_engine(database_url)
+
+database_url_stock = f'mysql+mysqldb://{db_user}:{db_password}@{db_host}:{db_port}/{db_name_stock}'
+engine_stock = create_engine(database_url_stock)
+
 
 # Read data directly from MySQL
 #data = pd.read_sql_table(table_name, con=engine)
@@ -47,6 +52,9 @@ def index():
         selected_date = selected_date_obj.strftime('%Y-%m-%d')  # For input field
         table_name = selected_date_obj.strftime('%d%m%Y')
 
+    prev_date = (selected_date_obj - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+    next_date = (selected_date_obj + pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+
     # Get page number from URL (default to 1)
     page = request.args.get('page', 1, type=int)
 
@@ -63,11 +71,20 @@ def index():
         total_pages = (total_rows // rows_per_page) + (1 if total_rows % rows_per_page > 0 else 0)
 
         error = None
+        holiday_message = None
 
     except Exception as e:
         data = pd.DataFrame()
         total_pages = 0
         error = f"Error fetching data for {selected_date}: {str(e)}"
+
+        # Check if error is table not found
+        if "doesn't exist" in str(e):
+            holiday_message = f"{selected_date} is a Holiday — No Trading!"
+            error = None  # No need to show error
+        else:
+            error = f"Error fetching data for {selected_date}: {str(e)}"
+            holiday_message = None
 
     if not data.empty:
         table_html = """
@@ -102,7 +119,7 @@ def index():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Stock Data (4 Columns)</title>
+        <title>Stock Data</title>
         <style>
             table {border-collapse: collapse; width: 100%;}
             th, td {border: 1px solid #ddd; padding: 8px; text-align: center;}
@@ -121,10 +138,36 @@ def index():
             .view-button:hover {
                 background-color: #45a049;
             }
+            .date-navigation {
+            margin-bottom: 15px;
+            }
+            .date-navigation a {
+                margin: 0 10px;
+                text-decoration: none;
+                font-size: 20px;
+                padding: 5px 10px;
+                background-color: #008CBA;
+                color: white;
+                border-radius: 5px;
+            }
+            .date-navigation a:hover {
+                background-color: #007bb5;
+            }
+            .holiday {
+                color: green;
+                font-size: 20px;
+                margin-top: 20px;
+            }
         </style>
     </head>
     <body>
-        <h2>Stock Market Data (4 Columns)</h2>
+        <h2>Stock Market Data</h2>
+
+        <div class="date-navigation">
+            <a href="/?date={{ prev_date }}">&larr; Previous Day</a>
+            <strong>{{ selected_date }}</strong>
+            <a href="/?date={{ next_date }}">Next Day &rarr;</a>
+        </div>
 
         <form method="get" action="/">
             <label for="date">Select Date:</label>
@@ -132,7 +175,11 @@ def index():
             <button type="submit">Go</button>
         </form>
 
-        <br>    
+        <br>   
+
+        {% if holiday_message %}
+            <div class="holiday">{{ holiday_message }}</div>
+        {% endif %} 
 
         {% if error %}
             <div class="error">{{ error }}</div>
@@ -159,40 +206,120 @@ def index():
         page=page,
         total_pages=total_pages,
         selected_date=selected_date,
+        prev_date=prev_date,
+        next_date=next_date,
         error=error
     )
 
 @app.route('/stock/<symbol>')
+
 def stock_detail(symbol):
-    selected_date = request.args.get('date')
-    if selected_date:
-        try:
-            selected_date_obj = datetime.strptime(selected_date, '%Y-%m-%d')
-            table_name = selected_date_obj.strftime('%d%m%Y')
-        except ValueError:
-            return f"Invalid date format: {selected_date}", 400
-    else:
-        return "No date provided.", 400
-
     try:
-        # Query for that particular stock
-        query = f'''SELECT * FROM `{table_name}` WHERE SYMBOL = %s'''
-        stock_data = pd.read_sql(query, con=engine, params=[symbol])
+        # Read data from table named after stock symbol (lowercase)
+        stock_table_name = symbol.lower()
 
-        if stock_data.empty:
-            return f"No data found for {symbol} on {selected_date}"
+        page = request.args.get('page', 1, type=int)
+        rows_per_page = 50
+        offset = (page - 1) * rows_per_page
 
-        # Render a simple page
-        html = stock_data.to_html(index=False)
-
-        return f"""
-        <h2>Details for {symbol} on {selected_date}</h2>
-        {html}
-        <br>
-        <a href="/?date={selected_date}">Back to list</a>
+        query = f"""
+        SELECT 
+            ` DATE1`, 
+            ` PREV_CLOSE`, 
+            ` OPEN_PRICE`, 
+            ` CLOSE_PRICE`, 
+            ` TTL_TRD_QNTY`, 
+            ` NO_OF_TRADES`, 
+            `PER_CHANGE`
+        FROM `{stock_table_name}`
+        ORDER BY STR_TO_DATE(` DATE1`, '%%d-%%b-%%Y') ASC
+        LIMIT {rows_per_page} OFFSET {offset}
         """
+
+        # Query all data from stock table
+        stock_data = pd.read_sql(query, con=engine_stock)
+
+        total_rows_query = f"SELECT COUNT(*) FROM `{stock_table_name}`"
+        total_rows = pd.read_sql(total_rows_query, con=engine_stock).iloc[0, 0]
+
+        total_pages = (total_rows // rows_per_page) + (1 if total_rows % rows_per_page > 0 else 0)
+
+
+        # Create nice table
+        table_html = stock_data.to_html(index=False)
+
+        error = None
     except Exception as e:
-        return f"Error: {str(e)}"
+        table_html = ""
+        total_pages = 0
+        page = 1
+        error = f"Error fetching data for stock {symbol.upper()}: {str(e)}"
+
+    stock_html_template = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Stock Detail - {{ symbol.upper() }}</title>
+        <style>
+            table {border-collapse: collapse; width: 100%;}
+            th, td {border: 1px solid #ddd; padding: 8px; text-align: center;}
+            th {background-color: #f2f2f2;}
+            .error {color: red;}
+            .back-link {
+                margin-top: 20px;
+                display: inline-block;
+                padding: 8px 16px;
+                background-color: #008CBA;
+                color: white;
+                text-decoration: none;
+                border-radius: 5px;
+            }
+            .back-link:hover {
+                background-color: #007bb5;
+            }
+            .pagination {
+                margin-top: 20px;
+                text-align: center;
+            }
+            .pagination a {
+                margin: 0 5px;
+                padding: 8px 12px;
+                text-decoration: none;
+                background-color: #4CAF50;
+                color: white;
+                border-radius: 5px;
+            }
+            .pagination a:hover {
+                background-color: #45a049;
+            }
+        </style>
+    </head>
+    <body>
+        <h2>Details for Stock: {{ symbol.upper() }}</h2>
+
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% else %}
+            {{ table | safe }}
+
+            <div class="pagination">
+                <h4>Page {{ page }} of {{ total_pages }}</h4>
+                {% if page > 1 %}
+                    <a href="/stock/{{ symbol }}?page={{ page - 1 }}">Previous</a>
+                {% endif %}
+                {% if page < total_pages %}
+                    <a href="/stock/{{ symbol }}?page={{ page + 1 }}">Next</a>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        <br>
+        <a class="back-link" href="/">Back to Home</a>
+    </body>
+    </html>
+    """
+
+    return render_template_string(stock_html_template, symbol=symbol, table=table_html, error=error, page=page, total_pages=total_pages)
 
 if __name__ == '__main__':
     app.run(debug=True)
