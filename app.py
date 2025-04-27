@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, request
+from flask import Flask, render_template_string, request, redirect
 import pandas as pd
 from sqlalchemy import create_engine
 import configparser
@@ -158,6 +158,41 @@ def index():
                 font-size: 20px;
                 margin-top: 20px;
             }
+            .top-bar {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+            }
+            .date-form,
+            .search-form {
+                display: flex;
+                align-items: center;
+            }
+            .date-form label,
+            .search-form label {
+                margin-right: 8px;
+            }
+            .date-form input,
+            .search-form input {
+                padding: 8px;
+                margin-right: 8px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+            }
+            .date-form button,
+            .search-form button {
+                padding: 8px 16px;
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+            }
+            .date-form button:hover,
+            .search-form button:hover {
+                background-color: #45a049;
+            }
         </style>
     </head>
     <body>
@@ -169,11 +204,18 @@ def index():
             <a href="/?date={{ next_date }}">Next Day &rarr;</a>
         </div>
 
-        <form method="get" action="/">
-            <label for="date">Select Date:</label>
-            <input type="date" id="date" name="date" required>
-            <button type="submit">Go</button>
-        </form>
+        <div class="top-bar">
+            <form method="get" action="/" class="date-form">
+                <label for="date">Select Date:</label>
+                <input type="date" id="date" name="date" value="{{ selected_date }}" required>
+                <button type="submit">Go</button>
+            </form>
+
+            <form method="get" action="/stock" class="search-form">
+                <input type="text" id="symbol" name="symbol" placeholder="Enter stock symbol..." required>
+                <button type="submit">Search</button>
+            </form>
+        </div>
 
         <br>   
 
@@ -320,6 +362,14 @@ def stock_detail(symbol):
     """
 
     return render_template_string(stock_html_template, symbol=symbol, table=table_html, error=error, page=page, total_pages=total_pages)
+
+@app.route('/stock')
+def stock_redirect():
+    symbol = request.args.get('symbol', '').lower().strip()
+    if symbol:
+        return redirect(f'/stock/{symbol}')
+    else:
+        return redirect('/')
 
 if __name__ == '__main__':
     app.run(debug=True)
