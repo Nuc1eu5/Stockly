@@ -1,8 +1,12 @@
-from flask import Flask, render_template_string, request, redirect
+from flask import Flask, render_template_string, request, redirect, url_for
 import pandas as pd
 from sqlalchemy import create_engine
 import configparser
 from datetime import datetime
+import plotly.express as px
+import plotly.io as pio
+import io
+import base64
 
 app = Flask(__name__)
 
@@ -96,6 +100,7 @@ def index():
                     <th>Close Price</th>
                     <th>Percentage Change</th>
                     <th>View</th>
+                    <th>Analysis</th>
                 </tr>
             </thead>
             <tbody>
@@ -108,6 +113,7 @@ def index():
                     <td>{row[' CLOSE_PRICE']}</td>
                     <td>{row['PER_CHANGE']}</td>
                     <td><a href="/stock/{row['SYMBOL']}?date={selected_date}" class="view-button">View</a></td>
+                    <td><a href="/stock/{row['SYMBOL']}/analysis" class="view-button">View</a></td>
                 </tr>
             """
         table_html += "</tbody></table>"
@@ -370,6 +376,140 @@ def stock_redirect():
         return redirect(f'/stock/{symbol}')
     else:
         return redirect('/')
+    
+@app.route('/stock/<symbol>/analysis', methods=['GET'])
+
+def stock_analysis(symbol):
+    try:
+
+        symbol = symbol.lower()
+
+        query = f"""
+        SELECT 
+            ` DATE1`, 
+            ` PREV_CLOSE`, 
+            ` CLOSE_PRICE`, 
+            ` TTL_TRD_QNTY`
+        FROM `{symbol}`
+        #ORDER BY STR_TO_DATE(` DATE1`, '%%d-%%b-%%Y') DESC        
+        """
+
+        stock_data = pd.read_sql(query, con=engine_stock)
+
+        #stock_data[' DATE1'] = pd.to_datetime(stock_data[' DATE1'], format='%d-%b-%Y', errors='coerce')
+
+        # Drop rows with invalid dates (if any)
+        #stock_data = stock_data.dropna(subset=[' DATE1'])
+
+        if stock_data.empty:
+            error_message = f"No data available for stock {symbol}."
+            return render_template_string("<h3>{{ error }}</h3>", error=error_message)
+
+        stock_data = stock_data.sort_values(' DATE1')
+
+        if len(stock_data) < 30:
+            error_message = f"Not enough data available for stock {symbol} to perform 30-day analysis."
+            return render_template_string("<h3>{{ error }}</h3>", error=error_message)
+
+        # 1. Volume analysis
+        last_7_days = stock_data.tail(7)
+        last_30_days = stock_data.tail(30)
+
+        if len(last_7_days) < 7 or len(last_30_days) < 30:
+            error_message = f"Not enough data for 7-day or 30-day volume analysis for stock {symbol}."
+            return render_template_string("<h3>{{ error }}</h3>", error=error_message)
+        
+        weekly_avg_volume = last_7_days[' TTL_TRD_QNTY'].mean()
+        monthly_avg_volume = last_30_days[' TTL_TRD_QNTY'].mean()
+        today_volume = stock_data.iloc[-1][' TTL_TRD_QNTY']
+        volume_surge_week = today_volume / weekly_avg_volume
+        volume_surge_month = today_volume / monthly_avg_volume
+
+        # 2. Price Growth Analysis
+        start_price_week = last_7_days.iloc[0][' PREV_CLOSE']
+        end_price_week = last_7_days.iloc[-1][' CLOSE_PRICE']
+        week_growth = ((end_price_week - start_price_week) / start_price_week) * 100
+
+        start_price_month = last_30_days.iloc[0][' PREV_CLOSE']
+        end_price_month = last_30_days.iloc[-1][' CLOSE_PRICE']
+        month_growth = ((end_price_month - start_price_month) / start_price_month) * 100
+
+        # 3. High/Low price analysis
+        highest_close = last_30_days[' CLOSE_PRICE'].max()
+        lowest_close = last_30_days[' CLOSE_PRICE'].min()
+
+        # 4. Up/Down days
+        up_days = (last_30_days[' CLOSE_PRICE'] > last_30_days[' PREV_CLOSE']).sum()
+        down_days = (last_30_days[' CLOSE_PRICE'] < last_30_days[' PREV_CLOSE']).sum()
+
+        # Return the analysis results
+        analysis_result = {
+            'weekly_avg_volume': round(weekly_avg_volume, 2),
+            'monthly_avg_volume': round(monthly_avg_volume, 2),
+            'today_volume': round(today_volume, 2),
+            'volume_surge_week': round(volume_surge_week, 2),
+            'volume_surge_month': round(volume_surge_month, 2),
+            'week_growth': round(week_growth, 2),
+            'month_growth': round(month_growth, 2),
+            'highest_close': round(highest_close, 2),
+            'lowest_close': round(lowest_close, 2),
+            'up_days': up_days,
+            'down_days': down_days
+        }
+    except Exception as e:
+        error_message = f"Error fetching data for stock {symbol}: {str(e)}"
+        return render_template_string("<h3>{{ error }}</h3>", error=error_message)
+
+    # Data visualization using Plotly
+    fig1 = px.line(stock_data, x=' DATE1', y=' CLOSE_PRICE', title=f'{symbol.upper()} Price Trend')
+    fig1_html = pio.to_html(fig1, full_html=False)
+
+    fig2 = px.bar(stock_data, x=' DATE1', y=' TTL_TRD_QNTY', title=f'{symbol.upper()} Volume Trend')
+    fig2_html = pio.to_html(fig2, full_html=False)
+
+    # Return the stock page with the analysis
+    return render_template_string('''
+        <html>
+            <head>
+                <style>
+                    .home-button {
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        padding: 10px 15px;
+                        background-color: #007BFF;
+                        color: white;
+                        font-size: 16px;
+                        border: none;
+                        border-radius: 5px;
+                        cursor: pointer;
+                    }
+                    .home-button:hover {
+                        background-color: #0056b3;
+                    }
+                </style>
+            </head>
+            <body>
+                <button class="home-button" onclick="window.location.href='/'">Home</button>
+                                  
+                <h1>{{ symbol.upper() }} - Stock Analysis</h1>
+                <div>
+                    <h3>Price Growth (7 Days): {{ analysis_result['week_growth'] }}%</h3>
+                    <h3>Price Growth (30 Days): {{ analysis_result['month_growth'] }}%</h3>
+                    <h3>Volume Surge (7 Days): {{ analysis_result['volume_surge_week'] }}x</h3>
+                    <h3>Volume Surge (30 Days): {{ analysis_result['volume_surge_month'] }}x</h3>
+                    <h3>Highest Close in 30 Days: ₹{{ analysis_result['highest_close'] }}</h3>
+                    <h3>Lowest Close in 30 Days: ₹{{ analysis_result['lowest_close'] }}</h3>
+                    <h3>Up Days: {{ analysis_result['up_days'] }}</h3>
+                    <h3>Down Days: {{ analysis_result['down_days'] }}</h3>
+                </div>
+                <h3>Charts</h3>
+                <div>{{ fig1_html | safe }}</div>
+                <div>{{ fig2_html | safe }}</div>
+            </body>
+        </html>
+    ''', symbol=symbol, analysis_result=analysis_result, fig1_html=fig1_html, fig2_html=fig2_html)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
