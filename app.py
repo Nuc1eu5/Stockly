@@ -33,6 +33,8 @@ rows_per_page = 10
 
 def index():
 
+    sort_order = request.args.get('sort', 'desc')
+
     # Default table (today’s date, or any default you want)
     selected_date = request.args.get('date')
     if selected_date:
@@ -59,7 +61,7 @@ def index():
 
     try:
         # SQL query to fetch data (no PER_CHANGE calculation)
-        query = f''' SELECT SYMBOL,` OPEN_PRICE`,` CLOSE_PRICE`, PER_CHANGE FROM `{table_name}` ORDER BY PER_CHANGE DESC LIMIT {rows_per_page} OFFSET {offset}'''
+        query = f''' SELECT SYMBOL,` OPEN_PRICE`,` CLOSE_PRICE`, PER_CHANGE FROM `{table_name}` ORDER BY PER_CHANGE {'ASC' if sort_order == 'asc' else 'DESC'} LIMIT {rows_per_page} OFFSET {offset}'''
         data = pd.read_sql(query, con=engine)
 
         # Calculate total pages
@@ -209,6 +211,11 @@ def index():
                 <button type="submit">Go</button>
             </form>
 
+            <div style="margin-bottom: 20px;">
+                <a href="/?date={{ selected_date }}&sort=asc" class="view-button">Sort by Growth ↑</a>
+                <a href="/?date={{ selected_date }}&sort=desc" class="view-button">Sort by Growth ↓</a>
+            </div>
+            
             <form method="get" action="/stock" class="search-form">
                 <input type="text" id="symbol" name="symbol" placeholder="Enter stock symbol..." required>
                 <button type="submit">Search</button>

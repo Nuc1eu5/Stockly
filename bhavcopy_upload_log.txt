@@ -1314,3 +1314,4 @@
 2025-04-27 14:48:50,138 - INFO - 31122020.csv successfully uploaded to the database.
 2025-04-27 14:48:50,282 - INFO - 31122021.csv successfully uploaded to the database.
 2025-04-27 14:48:50,425 - INFO - 31122024.csv successfully uploaded to the database.
+2025-04-28 21:46:35,731 - INFO - 28042025.csv successfully uploaded to the database.
