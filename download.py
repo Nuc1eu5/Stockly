@@ -62,6 +62,8 @@ def download_file(url, date_str):
     else:
         print(f"{date_str} is already downloaded")
 
+
+
 while current_date <= end_date:
     
     if current_date.weekday() < 5 and current_date.strftime("%d%m%Y") not in holiday:

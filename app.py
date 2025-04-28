@@ -5,8 +5,6 @@ import configparser
 from datetime import datetime
 import plotly.express as px
 import plotly.io as pio
-import io
-import base64
 
 app = Flask(__name__)
 
@@ -28,12 +26,6 @@ engine = create_engine(database_url)
 
 database_url_stock = f'mysql+mysqldb://{db_user}:{db_password}@{db_host}:{db_port}/{db_name_stock}'
 engine_stock = create_engine(database_url_stock)
-
-
-# Read data directly from MySQL
-#data = pd.read_sql_table(table_name, con=engine)
-
-#data = data[['SYMBOL',' OPEN_PRICE',' CLOSE_PRICE','PER_CHANGE']]
 
 rows_per_page = 10
 
@@ -280,7 +272,7 @@ def stock_detail(symbol):
             ` NO_OF_TRADES`, 
             `PER_CHANGE`
         FROM `{stock_table_name}`
-        ORDER BY STR_TO_DATE(` DATE1`, '%%d-%%b-%%Y') ASC
+        ORDER BY STR_TO_DATE(` DATE1`, '%%d-%%b-%%Y') DESC
         LIMIT {rows_per_page} OFFSET {offset}
         """
 
@@ -313,16 +305,16 @@ def stock_detail(symbol):
             th, td {border: 1px solid #ddd; padding: 8px; text-align: center;}
             th {background-color: #f2f2f2;}
             .error {color: red;}
-            .back-link {
-                margin-top: 20px;
+            .back-link, .analysis-button {
                 display: inline-block;
                 padding: 8px 16px;
                 background-color: #008CBA;
                 color: white;
                 text-decoration: none;
                 border-radius: 5px;
+                margin-left: 20px; /* Space between buttons */
             }
-            .back-link:hover {
+            .back-link:hover, .analysis-button:hover {
                 background-color: #007bb5;
             }
             .pagination {
@@ -340,9 +332,31 @@ def stock_detail(symbol):
             .pagination a:hover {
                 background-color: #45a049;
             }
+
+            /* Header Flexbox Layout */
+            .header-container {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+            }
+
+            .header-container h2 {
+                margin: 0;
+            }
+
+            .content {
+                padding-top: 20px;  /* Adding some space above content */
+            }
         </style>
     </head>
     <body>
+
+        <div class="button-container">
+            <a class="back-link" href="/">Back to Home</a>
+            <a class="analysis-button" href="/stock/{{ symbol.upper() }}/analysis">Analysis</a>
+        </div>
+
         <h2>Details for Stock: {{ symbol.upper() }}</h2>
 
         {% if error %}
@@ -391,7 +405,7 @@ def stock_analysis(symbol):
             ` CLOSE_PRICE`, 
             ` TTL_TRD_QNTY`
         FROM `{symbol}`
-        #ORDER BY STR_TO_DATE(` DATE1`, '%%d-%%b-%%Y') DESC        
+        ORDER BY STR_TO_DATE(` DATE1`, '%%d-%%b-%%Y') ASC        
         """
 
         stock_data = pd.read_sql(query, con=engine_stock)
@@ -405,7 +419,7 @@ def stock_analysis(symbol):
             error_message = f"No data available for stock {symbol}."
             return render_template_string("<h3>{{ error }}</h3>", error=error_message)
 
-        stock_data = stock_data.sort_values(' DATE1')
+        #stock_data = stock_data.sort_values(' DATE1')
 
         if len(stock_data) < 30:
             error_message = f"Not enough data available for stock {symbol} to perform 30-day analysis."

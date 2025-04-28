@@ -1315,3 +1315,7 @@
 2025-04-25 22:07:53,970 - INFO - 23042025 successfully downloaded.
 2025-04-25 22:07:54,398 - INFO - 24042025 successfully downloaded.
 2025-04-25 22:07:54,783 - INFO - 25042025 successfully downloaded.
+2025-04-28 09:12:16,817 - INFO - 28042025 not downloaded.
+2025-04-28 09:12:19,179 - INFO - 28042025 not downloaded.
+2025-04-28 09:12:21,529 - INFO - 28042025 not downloaded.
+2025-04-28 21:12:09,252 - INFO - 28042025 successfully downloaded.

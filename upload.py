@@ -1,7 +1,5 @@
-import mysql.connector as mysql
-import csv
 import pandas as pd
-from sqlalchemy import create_engine, MetaData, Table
+from sqlalchemy import create_engine
 import os
 import configparser
 import logging
@@ -155,10 +153,9 @@ def file_to_table():                #uplodes daily bhavcopy to database1 - 'date
             logging.error(f"Error uploading {filename}: {e}")
             print(f"Error uploading {filename}: {e}")
 
- 
-#file_to_table()                 #uplodes daily bhavcopy to database 1 - 'datewisedb'
+file_to_table()                 #uplodes daily bhavcopy to database 1 - 'datewisedb'
 
-file_to_stock()                 #uploades stock wise data to database 2 - 'stockwisedb' where data of perticular stock is uploded
+#file_to_stock()                 #uploades stock wise data to database 2 - 'stockwisedb' where data of perticular stock is uploded
 
 
 #below information is no longer useful after automated csv downloader update.

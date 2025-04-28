@@ -1,13 +1,9 @@
 import download
-import upload
 import convertcsv
+import upload
+
 
 def start_update():
-    pass
-
-    
-    #run download.py
-    #run upload.py
-    #run convertcsv.py
+    print("Start")
 
 start_update()
